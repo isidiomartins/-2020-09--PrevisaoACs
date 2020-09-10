@@ -1,0 +1,158 @@
+---
+title: "Previsão ACs - Dados APIs"
+author: "João Isidio Freitas Martins"
+date: "10/03/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+
+# Este documento requere a instalação dos seguintes pacotes:
+# packages <- c('devtools','ipeadatar','tseries','zoo','lubridate','tidyr','dplyr')
+
+# Retire o comentário da próxima linha, basta remover o # (Ctrl+Shift+C), e execute o código.
+# install.packages(packages)
+
+# library(devtools)
+# devtools::install_github('wilsonfreitas/rbcb') # O pacote não está no CRAN dadas as instabilidades da API do BCB
+# rm(packages)
+
+library(rbcb) # Acessa a API do BCB
+library(ipeadatar) # Acessa a API do IPEA
+library(tseries) # Acessa a API do yahoo
+
+library(zoo)
+library(lubridate)
+library(tidyr)
+library(dplyr)
+```
+
+## Escopo
+
+O trabalho consiste em estabelecer um método para a definição de modelos mais adequados para a previsão do número de atos de concentração dentro do CADE.
+
+## Dados de APIs
+
+O propósito deste código é o de estabelecer uma rotina de carga e tratamento dos dados que estão disponíveis por meio de APIs. E que são, pela natureza das APIs, automaticamente atualizáveis.
+
+### Origem
+
+Fontes dos dados.
+
+#### BCB
+
+Do Banco Central as séries que estão associadas ao ritmo da atividade, ao custo de capital, aos termos de troca, aos preços e aos meios de pagamento.
+```{r}
+series<- 
+  c(4380, # PIB mensal - Valores correntes (R$ milhões)
+    4382, # PIB acumulado dos últimos 12 meses - Valores correntes (R$ milhões)
+    24363,#	Índice de Atividade Econômica do Banco Central - IBC-Br
+    24364,# Índice de Atividade Econômica do Banco Central (IBC-Br) - com ajuste sazonal
+    4390, # Taxa de juros - Selic acumulada no mês
+    4189, # Taxa de juros - Selic acumulada no mês anualizada base 252
+    25433,# Taxa média mensal de juros das operações de crédito - Total
+    25434,# Taxa média mensal de juros das operações de crédito - Pessoas jurídicas - Total
+    11752,# Índice da taxa de câmbio real efetiva (IPCA) - Jun/1994=100
+    11753,# Índice da taxa de câmbio real (IPCA) - Jun/1994=100 - Dólar americano
+    20360,# Índice da taxa de câmbio efetiva nominal - Jun/1994=100
+    433,  # Índice nacional de preços ao consumidor-amplo (IPCA)
+    27815) # Meios de pagamento amplos - M4 (saldo em final de período)
+
+bcb<- rbcb::get_series(code = series, start_date = "2014-01-01", as = "xts")
+```
+
+Tranformando em dataframe:
+```{r}
+bcb<- do.call(what = merge, args = bcb)
+
+bcb<- data.frame(date = zoo::index(bcb), bcb)
+```
+
+Removendo lixo:
+```{r}
+rm(series)
+```
+
+#### IPEA
+
+Do IPEA os dados de risco e emprego.
+
+EMBI + Risco-Brasil
+```{r}
+embi<- ipeadatar::ipeadata(code = "JPM366_EMBI366")
+```
+
+Os dados de EMBI são diários. Converte-se para mensais.
+```{r}
+embi<-
+  embi %>% 
+  mutate(mes = lubridate::month(date),
+         ano = lubridate::year(date),
+         date = as.Date(paste0(ano, "-", formatC(x = mes, width = 2, flag = 0),"-01"))) %>%
+  filter(ano>=2014) %>% 
+  group_by(code, date) %>% 
+  summarise(value = mean(value, na.rm = TRUE)) %>%
+  tidyr::spread(key = code, value = value)
+```
+
+Pessoas ocupadas - 	IBGE/PNAD Contínua
+```{r}
+ocup<- ipeadatar::ipeadata(code = "PNADC12_PO12")
+```
+
+Aqui os dados são mensais e basta filtrar pelo período
+```{r}
+ocup<-
+  ocup %>% 
+  filter(date>="2014-01-01") %>%
+  select(code, date, value) %>% 
+  tidyr::spread(key = code, value = value)
+```
+
+Juntando e removendo o lixo
+```{r}
+ipea<- dplyr::full_join(embi, ocup)
+
+rm(ocup, embi)
+```
+
+#### YAHOO
+
+Ibovespa
+```{r}
+ibov<-
+  tseries::get.hist.quote(
+    instrument = "^BVSP",
+    start = "2014-01-01",
+    quote = "Close",
+    provider = "yahoo",
+    origin = "1970-01-01",
+    compression = "m",
+    retclass = "zoo")
+
+ibov<- data.frame(date = zoo::index(ibov), as.data.frame(ibov))
+
+names(ibov)[2]<- "ibov"
+```
+
+## Output
+
+Junta-se todas estas séries num só dataframe.
+```{r}
+base<- full_join(bcb, ibov)
+base<- full_join(base, ipea)
+```
+
+```{r}
+saveRDS(object = base, file = "3.output/1.data/dados_api.rds")
+```
+
+Removendo resíduos finais:
+```{r}
+rm(list = ls())
+```
+
+FIM
