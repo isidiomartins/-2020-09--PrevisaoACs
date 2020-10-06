@@ -1,0 +1,231 @@
+---
+title: "Previsão ACs - Regressões"
+author: "João Isidio Freitas Martins"
+date: "18/03/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Este documento requere a instalação dos seguintes pacotes:
+# packages <- c('dplyr','lubridate') # Retire o comentário e execute o código.
+
+# Retire o comentário da próxima linha, basta remover o # (Ctrl+Shift+C), e execute o código.
+# install.packages(packages)
+
+knitr::opts_knit$set(root.dir = here::here())
+
+library(dplyr)
+library(lubridate)
+```
+
+## Escopo
+
+O trabalho consiste em estabelecer um método para a definição de modelos mais adequados para a previsão do número de atos de concentração dentro do CADE.
+
+## Regressões
+
+Afim de buscar um modelo que melhor explique como flutuações em variáveis macroeconômicas são capazes de influenciar a decisão de investimento na forma de atos de concentração, realizar-se-á um conjunto de regressões que tem como variáveis independentes as variáveis estacionárias selecionadas anteriormente, e como variável depedente o número de atos de concentração que entram mensalmente no CADE.
+
+O objetivo aqui é o de testar o máximo de combinações possíveis para determinar qual o modelo que ao longo do tempo teria sido mais bem sucedido, ná média, na terefa de prever o número de ACs na autarquia.
+
+### Carga e tratamento da base
+
+Realiza-se a carga da base:
+```{r echo = FALSE}
+base<- readRDS(file = system.file("3.output", "1.data", "base.rds", 
+                                 package = "previsaoAC"))
+```
+
+```{r eval = FALSE}
+base<- readRDS(file = "inst/3.output/1.data/base.rds")
+```
+
+### Escrevendo equações
+
+Subindo os códigos das variáveis estacionárias
+```{r, echo = FALSE}
+estac<- readRDS(file = system.file("3.output", "1.data", "estacionariedade.rds", 
+                                 package = "previsaoAC"))
+estac<- rownames(estac)[estac$estac_0==TRUE & !is.na(estac$estac_0)]
+```
+
+```{r, eval = FALSE}
+estac<- readRDS(file = "inst/3.output/1.data/estacionariedade.rds")
+estac<- rownames(estac)[estac$estac_0==TRUE & !is.na(estac$estac_0)]
+```
+
+Fora as variáveis estacionárias, outras variáveis serão utilizadas como dummy ou para controle de efeitos fixos nos modelos.
+```{r}
+add<- c("factor(mes)")
+var<- c(add, estac)
+rm(estac, add)
+```
+
+Aqui, todas as combinações possíveis das variáveis independentes
+```{r}
+int<- lapply(X = seq_along(var), FUN = function(x) combn(x = var, m = x, simplify = FALSE))
+```
+
+Número de regressões possíveis por número de variáveis selecionadas para o modelo
+```{r}
+nreg<- sapply(X = int, length)
+names(nreg)<- seq_along(var)
+nreg
+```
+
+Total de regressões a serem estimadas (ao resultado deve-se somar o modelo com apenas o intercepto).
+```{r}
+sum(nreg)
+rm(nreg)
+```
+
+Aqui transforma-se as combinações em fórmulas a serem imputadas nas regressões
+```{r}
+fun1<- function(x) paste0(x, collapse = " + ")
+fun2<- function(y) lapply(X = int[[y]], FUN = fun1)
+func<- lapply(X = seq_along(var), FUN = fun2)
+
+# Transforma-se a lista em vetor para enfim obter todas as fórmulas completas.
+func<- unlist(func)
+func<- c(1,func)
+func<- paste0("ac ~ ",func)
+
+rm(int, fun1, fun2, var)
+```
+
+### Execução das regressões
+
+Afim de projetar o número de atos de concentração nos próximos 12 meses, faz-se necessário que essa variável explicada seja uma função de variáveis defasadas em 12 meses. Assim, com os dados de hoje, será possivel estimar os dados de daqui 12 meses.
+
+Existem várias formas de lidar com variáveis defasadas em regressões no R. Mas para evitar dificuldades com o uso da função `predict` buscar-se-á defasar cada vetor de variável explicativa dentro da própria base.
+
+Nota-se que as regressões serão equivalentes a regressões com variáveis conteporâneas, mas com interpretações equivalentes a de variáveis defasadas.
+
+Variáveis a serem defasadas:
+```{r}
+variaveis<- names(base)
+variaveis<- variaveis[!variaveis %in% c("data", "ac", "ac12c", "ano", "mes", "anomes")]
+```
+
+Criando espaço para alocar as variáveis defasadas (o vetor desce! precisa de espaço para ocupar).
+```{r}
+fun3<- function(data){
+  
+  # Criando 12 novas linhas vazias
+  n<- nrow(data)
+  new<- (n+1):(n+12)
+  data[new,]<- NA
+  
+  # Criando datas para estes espaços vazios
+  last<- max(which(!is.na(data$data)))
+  data$data[(last+1):nrow(data)]<- data$data[last] %m+% months(1:12)
+  
+  # Simplesmente preenchendo os outros campos de data
+  data$ano<- lubridate::year(x = data$data)
+  data$mes<- lubridate::month(x = data$data)
+  data$anomes<- paste0(data$ano, "-", formatC(x = data$mes, width = 2, flag = "0"))
+  
+  data
+}
+
+base<- fun3(base)
+
+base[,variaveis]<- sapply(X = base[,variaveis], FUN = function(x) dplyr::lag(x = x, n = 12))
+
+rm(variaveis, fun3)
+```
+
+Executando as regressões
+```{r warning=FALSE}
+reg<- lapply(X = func, FUN = function(x) lm(formula = formula(x), data = base)) # Esse passo é dispensável?
+```
+
+### Escolha de modelo
+
+Qual o melhor modelo? Um alto $R^2$ não atesta o poder de previsão do modelo fora da amostra. Pode-se então reservar uma parte da amostra, também conhecida como conjunto de validação, para avaliar o erro de projeção do modelo.
+
+Agora que as regressões foram executadas, deve-se aplicar método para determinar qual modelo teria sido mais bem sucedido, ao longo do tempo, na tarefa de prever o número de ACs mensais.
+
+Função para rodar o modelo até certa data (ponto do tempo ou linha):
+```{r warning=FALSE}
+fun4<- function(i,x) {
+  int<- lm(formula = formula(x), data = base[1:i,])
+  prev<- predict(object = int, newdata = base[(i+1):(i+12),])
+  prev<- cbind(base[names(prev), c("ano", "mes","anomes", "ac")], prev)
+  prev
+  }
+
+fun5<- function(x) {
+  inicio<- which(base$data == "2017-12-01") # Neste ponto podem ser realizadas alterações
+  final<- max(which(!is.na(base$ac) == TRUE))
+  lapply(X = inicio:final, FUN = fun4, x)}
+
+int<- lapply(X = func, FUN = fun5)
+
+rm(fun4,fun5)
+```
+ 
+O Root mean squared error (RMSE) é uma medida que calcula a distância entre os valores previstos e realizados para um dado modelo e amostra.
+$$RMSE^{j,\overline{t}}=\sqrt{\frac{1}{n} \sum_{t=\overline{t}+1}^{\overline{t}+12}(y_i-\hat{y}_i^{j,\overline{t}})^2}$$
+
+O melhor modelo será aquele em que a diferença entre as estimativas e os resultados observados tenham sido as menores possíveis. 
+
+Como aqui um mesmo modelo dá várias estimativas para um mesmo mês, propoe-se somar todas estas distâncias quadráticas simultâneamente.
+
+$$
+ARMSE^{j} = \sum_{\overline{t}=\overline{t}_0}^{\overline{t}_n} RMSE^{j,\overline{t}}
+$$
+
+Eis o cálculo que determina o modelo escolhido.
+```{r}
+fun6<- function(x){
+  dist_q<- (x$ac-x$prev)^2
+  dist_q<- sqrt(mean(dist_q, na.rm = TRUE)) # RMSE: sqrt(mean(dist_q, na.rm = TRUE))
+  dist_q                                    # Anterior: sum(dist_q, na.rm = TRUE)
+  }
+
+fun7<- function(x) sapply(X = x, FUN = fun6)
+
+mod<- lapply(X = int, FUN = fun7); models<- mod # salvando cópia
+mod<- sapply(X = mod, FUN = sum, na.rm = TRUE)
+
+mod<- which.min(mod)
+rm(fun6, fun7)
+```
+
+## Output
+
+Vários dos objetos produzidos aqui são insumos para a produção do relatório final. Deve-se selecionar estes elementos para que sejam carregados ao início do relatório.
+
+Eis uma lista destes resultados:
+```{r}
+output<- list()
+
+# O modelo selecionado
+output$modelo<- func[mod]
+
+# A regressão
+output$regressao<- reg[[mod]]
+
+# As previsões
+last<- length(int[[mod]])
+output$previsao<- int[[mod]][[last]]
+
+rm(last)
+```
+
+Salvando o RDS
+```{r eval = FALSE}
+saveRDS(object = output, file = "inst/3.output/1.data/output_resultado.rds")
+saveRDS(object = int, file = "inst/3.output/1.data/int.rds")
+saveRDS(object = models, file = "inst/3.output/1.data/models.rds")
+```
+
+Removendo lixo:
+```{r}
+rm(list = ls())
+```
+
+FIM

@@ -1,0 +1,11 @@
+pandoc: 2.3.1
+pkgdown: 1.6.1
+pkgdown_sha: ~
+articles:
+  00.Dados APIs: 00.Dados APIs.html
+  01.Dados CN: 01.Dados CN.html
+  02.Dados Consolidacao: 02.Dados Consolidacao.html
+  03.Estacionariedade: 03.Estacionariedade.html
+  04.Regressoes: 04.Regressoes.html
+last_built: 2020-10-06T18:28Z
+
