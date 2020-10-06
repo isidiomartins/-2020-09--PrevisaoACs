@@ -1,11 +1,11 @@
 Package: previsaoAC
 Title: Previsão de Atos de Concentracao notificados ao CADE
-Version: 0.0.0.9000
+Version: 1.0.1
 Authors@R: 
     person(given = "João Isídio",
            family = "Martins",
            role = c("aut", "cre"),
-           email = "joao.isirio@cade.gov.br")
+           email = "joao.isidio@cade.gov.br")
 Description: O Pacote reproduz o trabalho de Martins para 
   prever o número de atos de concentração notificados ao CADE
 License: GPL-3
