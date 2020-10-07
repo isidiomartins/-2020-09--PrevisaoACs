@@ -1,0 +1,25 @@
+Package: previsaoAC
+Title: Previsão de Atos de Concentracao notificados ao CADE
+Version: 1.0.1
+Authors@R: 
+    person(given = "João Isídio",
+           family = "Martins",
+           role = c("aut", "cre"),
+           email = "joao.isidio@cade.gov.br")
+Description: O Pacote reproduz o trabalho de Martins para 
+  prever o número de atos de concentração notificados ao CADE
+License: GPL-3
+Encoding: UTF-8
+LazyData: true
+Imports: 
+    rbcb,
+    ipeadatar,
+    zoo,
+    lubridate,
+    tseries,
+    tidyr,
+    dplyr,
+    readxl,
+    stargazer,
+    lmtest
+RoxygenNote: 7.1.0

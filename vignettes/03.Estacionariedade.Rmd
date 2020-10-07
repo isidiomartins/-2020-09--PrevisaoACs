@@ -1,0 +1,228 @@
+---
+title: "Previsão ACs - Estacionariedade"
+author: "João Isidio Freitas Martins"
+date: "18/03/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Este documento requere a instalação dos seguintes pacotes:
+# packages <- c('stargazer','lmtest','dplyr','lubridate')
+
+# Retire o comentário da próxima linha, basta remover o # (Ctrl+Shift+C), e execute o código.
+# install.packages(packages)
+
+knitr::opts_knit$set(root.dir = here::here())
+
+library(stargazer)
+library(lmtest)
+library(dplyr)
+library(lubridate)
+```
+
+## Escopo
+
+O trabalho consiste em estabelecer um método para a definição de modelos mais adequados para a previsão do número de atos de concentração dentro do CADE.
+
+## Estacionariedade
+
+Resulta desse código a determinação de quais variaveis serão tidas por estacionárias ou não. 
+As tabelas resumo com o resultado da estacionáriedade também constam desse código.
+
+Realiza-se a carga da base:
+```{r echo = FALSE}
+base<- readRDS(file = system.file("3.output", "1.data", "base.rds", 
+                                 package = "previsaoAC"))
+```
+
+```{r eval = FALSE}
+base<- readRDS(file = "inst/3.output/1.data/base.rds")
+```
+
+### ACs
+
+Realizou-se uma readequação da função "ur.df()" do pacote "urca" afim de vialbilizar a extração de coeficientes das regressões dos testes de raiz unitária.
+
+Realiza-se a carga da função:
+```{r}
+library(previsaoAC)
+```
+
+Realizando o teste de estacionariedade para o número de ACs:
+```{r}
+inta<- ur.df.modified(y = na.omit(base$ac), type = "trend")
+intb<- lmtest::bgtest(inta$result, order = 1)
+
+stargazer(inta$result,
+          # type = "text",
+          title = "Dickey-Fuller Aumentado - ACs mensais",
+          covariate.labels = c("Gamma", "Tendência", "Intercepto"),
+          dep.var.caption = "Primeira diferença",
+          dep.var.labels = c("Número de ACs"),
+          notes = c(paste0("Breusch-Godfrey (Ordem ",intb$parameter,") ",
+                        "LM: ",round(intb$statistic, digits = 3), ", ",
+                        "p-value: ",round(intb$p.value, digits = 3)),"Fonte: Cade em Números"),
+          notes.align = "c",
+          report = "vc*t")
+
+rm(inta, intb, ur.df.modified)
+```
+
+### Demais variáveis
+
+Busca-se testar a estacionariedade das variáveis que serão inseridas no modelo, afim de evitar a constituição de regressões espúrias. Eis as variáveis a terem as estacionariedade avaliada:
+```{r}
+variaveis<-
+  c(# "data",
+    "pibm",
+    "pibac",
+    "ibcm",
+    "ibcsz",
+    "slicm",
+    "slica",
+    "jmto",
+    "jmpj",
+    "cbef",
+    "cbre",
+    "cbnm",
+    "ipca",
+    "m4sld",
+    "ibov",
+    "embi",
+    "pnad"#,
+    # "ac",
+    # "ac12c",
+    # "lei",
+    # "rs09",
+    # "rs10",
+    # "ano",
+    # "mes",
+    # "anomes"
+  )
+```
+
+A função a seguir calcula as três formas do teste "Dickey-Fuller Aumentado" para um número y de defasagens. Para verificar se o número de defasagens adotadas no teste foi a adequada, calculou-se a estatística de "Breusch-Godfrey" supondo um processo gerador dos resíduos de ordem um. 
+
+Carrega-se a função:
+```{r}
+library(previsaoAC)
+```
+
+Determinando o subconjunto das variáveis que podem ser tomadas por estacionárias.
+```{r}
+# Calcula os testes para a variável x em todos 12 lags (sem lag também)
+fint<- function(x) {sapply(X = 0:12, function(y) tau(x = x, lags = y))}
+
+# Faz o mesmo, mas para todas as variáveis de interesse
+int<- lapply(X = base[variaveis], FUN = fint) # obs: não filtrei linhas por período comum a ACs
+int<- lapply(X = int, function(x) as.data.frame(t(x), stringsAsFactors = FALSE))
+
+# Seleciona o menor lag da variável x onde os testes são bem sucedidos
+fint<- function(x) x[min(which(x$resumo == TRUE)),]
+
+# Faz o mesmo, mas para todas as variáveis de interesse
+int<- lapply(X = int, FUN = fint)
+int<- do.call(what = rbind, args = int)
+
+# Guardando o resultado do teste de estacionariedade
+estac<- int["resumo"]
+names(estac)<- "estac_0"
+
+rm(fint)
+```
+
+Ajustando a apresentação dos resultados
+```{r}
+# Este dataframe contém os campos padronizados para exibição nas tabelas
+metadados<- readxl::read_excel(path = "inst/3.output/1.data/metadados.xlsx")
+
+# Selecionando os nomes por extenso
+nomes<- metadados$large[metadados$cod %in% rownames(int)]
+
+# Substituindo
+rownames(int)<- nomes
+
+# Ajuste no campo
+int$resumo<- ifelse(test = int$resumo, yes = "SIM", no = "-")
+
+# Nomes das colunas
+names(int)<- 
+  c(
+    paste0(
+      c("Rejeita raiz unitária?", "Rejeita ausência de autocorrelação?"),
+      " (", rep(c("iii","ii","i"), each = 2), ")"
+    ),
+    "Defasagens","Apropriada?")
+
+stargazer(int,
+          # type = "text",
+          title = "Significância dos testes de raiz unitária e autocorrelação dos resíduos para as variáveis macroeconômicas consideradas",
+          summary = FALSE)
+rm(int, metadados)
+```
+
+#### Primeira diferença
+
+Determinando o subconjunto das variáveis que em primeira diferença podem ser tomadas por estacionárias.
+```{r}
+# Calcula os testes para a variável x em todos 12 lags (sem lag também)
+fint<- function(x) {sapply(X = 0:12, function(y) tau(x = diff(x), lags = y))}
+
+# Faz o mesmo, mas para todas as variáveis de interesse
+int<- lapply(X = base[variaveis], FUN = fint) # obs: não filtrei linhas por período comum a ACs
+int<- lapply(X = int, function(x) as.data.frame(t(x), stringsAsFactors = FALSE))
+
+# Seleciona o menor lag da variável x onde os testes são bem sucedidos
+fint<- function(x) x[min(which(x$resumo == TRUE)),]
+
+# Faz o mesmo, mas para todas as variáveis de interesse
+int<- lapply(X = int, FUN = fint)
+int<- do.call(what = rbind, args = int)
+
+# Guardando o resultado do teste de estacionariedade
+estac$estac_1<- int$resumo
+
+rm(fint, variaveis)
+```
+
+Ajustando a apresentação dos resultados
+```{r}
+# Nomes das linhas
+rownames(int)<- nomes
+
+# Ajuste no campo
+int$resumo<- ifelse(test = int$resumo, yes = "SIM", no = "-")
+
+# Nomes das colunas
+names(int)<- 
+  c(
+    paste0(
+      c("Rejeita raiz unitária?", "Rejeita ausência de autocorrelação?"),
+      " (", rep(c("iii","ii","i"), each = 2), ")"
+    ),
+    "Defasagens","Apropriada?")
+
+stargazer(int,
+          # type = "text",
+          title = "Significância dos testes de raiz unitária e autocorrelção dos resíduos para a primeira diferença das variáveis macroeconômicas consideradas",
+          summary = FALSE)
+rm(int, nomes, tau, ur.df.modified)
+```
+
+## Output
+
+Por fim, guarda-se o dataframe com os resultados dos testes de estacionariedade, afim de que sirva como filtro para determinação das variáveis que serão utilizadas nos modelos.
+
+Salvando o RDS
+```{r eval = FALSE}
+saveRDS(object = estac, file = "inst/3.output/1.data/estacionariedade.rds")
+```
+
+Removendo lixo:
+```{r}
+rm(list = ls())
+```
+
+FIM
