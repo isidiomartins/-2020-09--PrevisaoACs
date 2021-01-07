@@ -1,0 +1,93 @@
+---
+title: "Previsão ACs - Dados Cade em Números"
+author: "João Isidio Freitas Martins"
+date: "13/04/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Este documento requere a instalação dos seguintes pacotes:
+# packages <- c('readxl','dplyr')
+
+# Retire o comentário da próxima linha, basta remover o # (Ctrl+Shift+C), e execute o código.
+# install.packages(packages)
+
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+
+library(readxl)
+library(dplyr)
+```
+
+## Escopo
+
+O trabalho consiste em estabelecer um método para a definição de modelos mais adequados para a previsão do número de atos de concentração dentro do CADE.
+
+## Dados do CADE em Números
+
+Planilhas com dados de notificação retiradas do Qlikview do "Cade em números" que pode ser acessado pela intranet. Os arquivos são renomeados com o ano.
+
+### Carga
+
+As planilhas retiradas da plataforma devem ser empilhadas.
+```{r}
+# Carregando as tabelas
+dir<- "2.data"
+arq<- list.files(path = dir, full.names = TRUE)
+lista<- lapply(X = arq, FUN = function(x){readxl::read_excel(path = x)})
+
+# Inserindo os anos
+nomes<- list.files(path = dir)
+nomes<- substr(x = nomes, start = 1, stop = 4)
+
+for(i in seq_along(lista)){
+  lista[[i]]$ano<- nomes[i]
+  }
+```
+
+Empilhando os dados
+```{r}
+base<- do.call(what = rbind, args = lista)
+```
+
+Removendo lixo
+```{r}
+rm(lista, arq, dir, i, nomes)
+```
+
+### Tratamentos
+
+Nomes dos campos
+```{r}
+names(base)<- c("mes", "acs", "ano")
+```
+
+Padronizando as datas:
+```{r}
+int<- paste0(base$ano,"-",base$mes,"-01")
+base$date<- as.Date(int, format = "%Y-%b-%d")
+rm(int)
+```
+
+Selecionando campos:
+```{r}
+base<- base[,c("date","acs")]
+```
+
+O último mês só é válido de estiver completo. Deve-se tirar o último registro para o caso de não estar.
+```{r}
+base<- base[base$date != dplyr::last(base$date),]
+```
+
+Salvando o RDS
+```{r}
+saveRDS(object = base, file = "3.output/1.data/acs_cn.rds")
+```
+
+Removendo lixo:
+```{r}
+rm(base)
+```
+
+FIM

@@ -1,0 +1,14 @@
+3.4 Evaluating forecast accuracy
+https://otexts.com/fpp2/accuracy.html#accuracy
+
+5.5 Selecting predictors
+Cross-validation
+https://otexts.com/fpp2/selecting-predictors.html
+
+https://pt.linkedin.com/pulse/rmse-ou-mae-como-avaliar-meu-modelo-de-machine-learning-rezende
+
+245.7975 - nivel
+248.0210 - log
+
+ponte relação previsão
+outras metricas, outros problemas
