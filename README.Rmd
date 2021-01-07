@@ -36,4 +36,5 @@ Para conhecer as análises navegue pelos artigos:
 1. [Dados consolidados](articles/02.Dados%20Consolidacao.html)
 1. [Teste de estacionariedade](articles/03.Estacionariedade.html)
 1. [Regressões](articles/04.Regressoes.html)
+1. [Resultados](articles/05.Resultados.html)
 

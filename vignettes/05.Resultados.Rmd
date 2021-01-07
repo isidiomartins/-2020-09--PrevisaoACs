@@ -1,0 +1,542 @@
+---
+title: "Previsão ACs - Resultados"
+author: "João Isidio Freitas Martins"
+date: "20/04/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE, echo=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+
+library(dplyr)
+library(ggplot2)
+library(ggthemes)
+```
+
+## 1.	Introdução
+
+Este painel tem como finalidade atender a demanda recorrente da Diretoria de Administração e Planejamento DAP/CADE por manifestações do DEE quanto a previsão do número de atos de concentração (AC) a serem notificados ao Cade.
+
+Dados mais recentes são mensalmente adicionados a base de informação do DEE tornando possível a identificação de novos modelos econométricos mais adaptados à tarefa de acertar, na média, o número de notificações futuro.
+
+## 2.	Resultados
+
+### 2.1. Carga dos dados
+
+Resultados do modelo de curto prazo
+```{r}
+# Realiza-se a carga dos resultados:
+output<- readRDS(file = system.file("3.output", "1.data", "output_resultado.rds", 
+                                 package = "previsaoAC"))
+```
+
+Resultados do modelo de longo prazo
+```{r}
+output_lrun<- readRDS(file = system.file("3.output", "1.data", 
+                                         "output_resultado.rds_lrun", 
+                                         package = "previsaoAC"))
+```
+
+Dados gerais
+```{r, echo=FALSE}
+# Realiza-se a carga da base:
+base<- readRDS(file = system.file("3.output", "1.data", "base.rds", 
+                                 package = "previsaoAC"))
+
+# Realiza-se a carga das previsões:
+int<- readRDS(file = system.file("3.output", "1.data", "int.rds", 
+                                 package = "previsaoAC"))
+```
+
+### 2.2. Tabelas
+
+Agregando as informações de realizações e previsões mensalmente
+```{r, echo=FALSE}
+# Realizações
+p1<- 
+base %>% 
+  filter(!is.na(ac)) %>% 
+  select(anomes, ano, mes, ac) %>% 
+  mutate(status = "realização")
+
+# Previsões CP
+p2<- 
+output$previsao %>% 
+  select(anomes, ano, mes, ac = prev) %>%
+  mutate(status = "previsão")
+
+# Previsões LP
+p3<- 
+output_lrun$previsao %>% 
+  select(anomes, ano, mes, ac = prev) %>%
+  mutate(status = "previsão")
+
+p3<- rbind.data.frame(p3 %>% mutate(ano = ano+1),
+                      p3 %>% mutate(ano = ano+2),
+                      p3 %>% mutate(ano = ano+3),
+                      p3 %>% mutate(ano = ano+4))
+p3<- 
+  p3 %>% 
+  filter(ano != 2025) %>%
+  mutate(anomes = paste0(ano, "-", formatC(x = mes, width = 2, flag = "0")))
+
+dados.mensais<- rbind.data.frame(p1, p2, p3)
+
+rm(p1,p2,p3)
+```
+
+Agregando as imformações de realizações e previsões anualmente
+```{r, echo=FALSE}
+dados.anuais<- 
+dados.mensais %>% 
+  mutate(ano = factor(ano)) %>% 
+  group_by(ano, status) %>% 
+  summarise(ac = sum(ac, na.rm = TRUE))
+```
+
+### 2.2. Gráficos
+
+Até 2024
+```{r, fig.align='center', echo=FALSE}
+ggplot()+
+  geom_bar(data = dados.anuais,# %>% filter(ano != ano_atual+1),
+           mapping = aes(x = ano, y = ac, fill = status),
+           stat = "identity")+
+  
+  scale_fill_viridis_d(begin = 0.3, end = 0.7)+
+  
+  geom_text(data = dados.anuais %>%
+              # filter(ano != ano_atual+1) %>%
+              group_by(ano) %>%
+              summarise(ac = sum(ac)),
+           mapping = aes(x = ano, y = ac, label = round(ac)),
+           position = "stack", vjust = -0.5, size = 3)+
+  
+  geom_text(data = dados.anuais,# %>% filter(ano == ano_atual),
+            mapping = aes(x = ano, y = ac, fill = status, label = round(ac)),
+            position = position_stack(vjust = 0.5), size = 3.5)+
+  
+  coord_cartesian(ylim = c(0,450))+
+  
+  ggtitle(label = "Gráfico 6: Número de notificações de ACs no Cade", 
+          subtitle = "Realizações e Previsões")+
+  
+  labs(fill = element_blank())+
+  
+  # ggthemes::theme_fivethirtyeight()+
+  
+  theme(axis.title = element_blank())
+
+# ggsave(filename = "3.output/2.figures/G7.png")
+```
+
+Até 2021
+```{r, fig.align='center', echo=FALSE}
+ano_atual<- lubridate::year(lubridate::today())
+
+ggplot()+
+  geom_bar(data = dados.anuais %>% filter(!ano %in% factor(ano_atual+2:4)),
+           mapping = aes(x = ano, y = ac, fill = status),
+           stat = "identity")+
+  
+  scale_fill_viridis_d(begin = 0.3, end = 0.7)+
+  
+  geom_text(data = dados.anuais %>%
+              filter(!ano %in% factor(ano_atual+2:4)) %>%
+              group_by(ano) %>%
+              summarise(ac = sum(ac)),
+           mapping = aes(x = ano, y = ac, label = round(ac)),
+           position = "stack", vjust = -0.5, size = 3)+
+  
+  geom_text(data = dados.anuais %>% filter(!ano %in% factor(ano_atual+2:4)),
+            mapping = aes(x = ano, y = ac, fill = status, label = round(ac)),
+            position = position_stack(vjust = 0.5), size = 3.5)+
+  
+  coord_cartesian(ylim = c(0,450))+
+  
+  ggtitle(label = "Número de notificações de ACs no Cade",
+          # "Gráfico 6: Número de notificações de ACs no Cade", 
+          subtitle = "Realizações e Previsões")+
+  
+  labs(fill = element_blank())+
+  
+  # ggthemes::theme_fivethirtyeight()+
+  
+  theme(axis.title = element_blank())
+
+# ggsave(filename = "3.output/2.figures/G8.png")
+```
+
+
+O modelo escolhido pelo algoritmo foi o seguinte: `r output$modelo`.
+
+Onde:
+
+(...) [Aqui a descrição das variavéis do modelo escolhido]
+
+Este modelo é um dentre `r length(int)` outros modelos testados que contavam com um conjunto de variáveis macroeconômicas que supostamente seriam capazes de afetar o número de atos de concentração.
+
+Dito de forma sucinta, sua escolha se dá por ser este modelo o que apresenta a menor soma dos quadrados dos erros (diferença entre a previsão feita fora da amostra e o valor observado) dentre todos os modelos avaliados.
+
+O número de atos de concentração que devem ser apresentados na autarquia no ano de `r ano_atual<- lubridate::year(lubridate::today()); ano_atual` é, portanto, de: `r acs<- sum(dados.anuais$ac[dados.anuais$ano == ano_atual] %>% round(0)); acs`
+
+```{r, echo=FALSE}
+# para o parágrafo
+inicio<- dados.mensais$anomes[dados.mensais$status == "realização"] %>% dplyr::last()
+inicio<- as.Date(paste0(inicio,"-01"))
+
+notific<- dados.anuais$ac[dados.anuais$status == "realização" & dados.anuais$ano == ano_atual]
+notific<- round(notific)
+
+prev<- dados.anuais$ac[dados.anuais$status == "previsão" & dados.anuais$ano == ano_atual]
+prev<- round(prev)
+```
+
+Até o mês de `r months(inicio)` já foram notificados `r notific` atos de concentração. Estão previstos para o resto do ano `r prev` novas notificações.
+
+```{r, fig.align='center', echo=FALSE}
+ggplot()+
+  geom_bar(data = dados.anuais %>% filter(ano != ano_atual+1),
+           mapping = aes(x = ano, y = ac, fill = status),
+           stat = "identity")+
+  
+  scale_fill_viridis_d(begin = 0.3, end = 0.7)+
+  
+  geom_text(data = dados.anuais %>%
+              filter(ano != ano_atual+1) %>%
+              group_by(ano) %>%
+              summarise(ac = sum(ac)),
+           mapping = aes(x = ano, y = ac, label = round(ac)),
+           position = "stack", vjust = -0.5, size = 3)+
+  
+  geom_text(data = dados.anuais %>% filter(ano == ano_atual),
+            mapping = aes(x = ano, y = ac, fill = status, label = round(ac)),
+            position = position_stack(vjust = 0.5), size = 3.5)+
+  
+  coord_cartesian(ylim = c(0,450))+
+  
+  ggtitle(label = "Gráfico 6: Número de notificações de ACs no Cade", 
+          subtitle = "Realizações e Previsões")+
+  
+  labs(fill = element_blank())+
+  
+  # ggthemes::theme_fivethirtyeight()+
+  
+  theme(axis.title = element_blank())
+
+# ggsave(filename = "3.output/2.figures/G6.png")
+```
+
+
+```{r, fig.align='center', echo=FALSE}
+ggplot(data = dados.mensais, mapping = aes(x = anomes, y = ac, fill = status))+
+  geom_bar(stat = "identity", width = 0.8)+
+  geom_line(mapping = aes(group = 1))+
+  geom_point(alpha = 0.5)+
+  
+  scale_fill_viridis_d(begin = 0.3, end = 0.7)+
+  
+  ggtitle(label = "Gráfico 5: Número de notificações de ACs no Cade - Dados mensais",
+          subtitle = "Realizações e Previsões")+
+  
+  # ggthemes::theme_fivethirtyeight()+
+  
+  labs(fill = element_blank())+
+  
+  theme(axis.title = element_blank(),
+        axis.text.x = element_text(angle = 90, size = 7, vjust = 0.3))
+
+# ggsave(filename = "3.output/2.figures/G5.png")
+```
+
+Eis a disitribuição das previsões para o resto do ano.
+```{r}
+models<- 
+function(x){
+  int <- int[[x]][[31]] %>%
+  filter(ano == 2020) %>%
+  group_by(ano) %>%
+  summarise(prev = sum(prev))
+  int$prev
+}
+
+modelos<- sapply(X = seq_along(int), FUN = models)
+
+modelos<- modelos + 125
+
+ggplot()+
+  geom_histogram(mapping = aes(x = modelos), binwidth = 5)+
+  ggthemes::theme_fivethirtyeight()
+```
+
+```{r}
+summary(modelos)
+```
+
+Eis os modelos que seriam escolhidos em cada ponto do tempo.
+```{r, echo=FALSE}
+# fun6<- function(x){
+#   dist_q<- (x$ac-x$prev)^2
+#   dist_q<- sum(dist_q, na.rm = TRUE)
+#   dist_q
+# }
+# 
+# fun7<- function(x) sapply(X = x, FUN = fun6)
+# 
+# mod<- lapply(X = int, FUN = fun7)
+# 
+# mod<- sapply(X = mod, cumsum)
+# 
+# for(i in 1:nrow(mod)){
+#   mod[i,] %>% which.min() %>% print()
+# }
+# 
+# rm(i, mod)
+```
+
+Este modelo é absolutamente conveniente quando contraposto com modelos que usam de variáveis macroeconômicas.
+
+Dessa forma, adota-se para os anos 2020, 2021, 2022 e 2023 as mesmas estimativas de 400 atos de concentração anuais (ver Tabela 1).
+Tabela 1: Número estimado de atos de concentração para o período 2020-2023
+Período	Número de atos de concentração - Estimativas
+2020	400
+2021	400
+2022	400
+2023	400
+ 
+## 3.	Conclusões
+
+Prevê-se para os anos de 2020, 2021, 2022 e 2023 que sejam submetidos à autarquia, a cada ano, 400 atos de concentração.
+
+
+FIM
+
+
+## R Markdown
+Esse código precisa ser ajustado pra ser automatizado. Alguns outputs devem ser salvos no codigo de regressao.
+
+Subindo os dados tratados:
+```{r}
+base<- readRDS(file = system.file("3.output", "1.data", "base.rds", 
+                                 package = "previsaoAC"))
+modelos<- readRDS(file = system.file("3.output", "1.data", "models.rds", 
+                                 package = "previsaoAC"))
+
+# PROBLEMA: Qual a origem?
+# Adaptação para superar inexistência do arquivo
+# M01<- modelos %>% 
+#   filter(modelo == "M01")
+# M01<- readRDS(file = "3.output/1.data/M01.rds")
+```
+
+Gráfico 1:
+```{r}
+ggplot(data = base %>% filter(!is.na(ac)),
+       mapping = aes(x = anomes, fill = factor(ano)))+
+  geom_bar(mapping = aes(y = ac), stat = "identity", width = 0.8)+
+  geom_line(mapping = aes(y = ac12c/12, group = 1), size = 1.5, color = "red")+
+  
+  scale_fill_viridis_d()+
+  
+  ggtitle(label = "Gráfico 1: Notificações mensais de atos de concentração no Cade",
+          subtitle = "Janeiro de 2015 a Junho de 2020")+
+  
+  labs(x = "Ano e mês de notificação no Cade",
+       y = "Número de notificações",
+       fill = "Ano", 
+       caption = "Obs: A linha em vermelho representa a média móvel de 12 meses.\nFonte: Cade em Números.")+
+  
+  theme(axis.text.x = element_text(angle = 90, size = 7, vjust = 0.3))
+
+# ggsave(filename = "3.output/2.figures/G1.png")
+```
+
+Tabela 1
+```{r}
+int<- summary(base$ac)
+int<- data.frame(matrix(int), row.names = c("Mínimo", "Primeiro quartil", "Mediana", "Média", "Terceiro quartil", "Máximo", "Desvio-padrão"))
+int[7,]<- sd(base$ac, na.rm = T)
+int["n",]<- length(base$ac[!is.na(base$ac)])
+
+stargazer::stargazer(int,
+          type = "text",
+          title = "Estatísticas descritivas - atos de concentração mensais",
+          summary = F, digits = 1, 
+          covariate.labels = c("", "Atos de concentração"),
+          notes ="Fonte: Cade em Números")
+```
+
+```{r, eval=FALSE}
+x<- M01
+x<- x[-1:-2]
+names(x)<- c("Período", "Observado", "Previsto")
+
+stargazer::stargazer(x,
+          # type = "text",
+          title = "Atos de concentração previstos e realizados para o modelo de intercepto - base de treino até dezembro de 2017",
+          summary = F, digits = 1,
+          rownames = FALSE,
+          notes ="Fonte: Cade em Números")
+```
+
+```{r}
+modelos[[1]][1]
+```
+
+```{r}
+modelos<- do.call(what = cbind, args = modelos)
+dim<- ncol(modelos)
+colnames(modelos)<- paste0("M", formatC(x = 1:dim, width = 2, flag = "0"))
+
+modelos<- as.data.frame(modelos, stringsAsFactors = FALSE)
+
+mes<- formatC(x = 1:12, width = 2, flag = "0")
+ano<- 2017:2020
+anomes<- paste0(sort(rep(ano, times = 12)),"-",mes)
+modelos$anomes<- anomes[12:42]
+
+rm(ano, mes, anomes)
+
+modelos<- tidyr::pivot_longer(data = modelos,
+                              names_to = "modelo",
+                              values_to = "rmse",
+                              -anomes)
+modelos<-
+  modelos %>% 
+  group_by(modelo) %>% 
+  mutate(armse = cumsum(rmse))
+
+ggplot(data = modelos,
+       mapping = aes(x = anomes, y = rmse, group = modelo, color = modelo))+
+  geom_point()+
+  geom_line()+
+  
+  scale_color_viridis_d()+
+  
+  ggtitle(label = "Gráfico 2: RMSE",
+          subtitle = "Dezembro de 2017 a Junho de 2020")+
+  labs(x = "Ano e mês da cisão",
+       y = "RMSE",
+       color = "Modelo")+
+  theme(axis.text.x = element_text(angle = 90, size = 7, vjust = 0.3))
+
+# ggsave(filename = "3.output/2.figures/G2.png")
+```
+
+```{r}
+ggplot(data = modelos,
+       mapping = aes(x = anomes, y = armse, group = modelo, color = modelo))+
+  geom_point()+
+  geom_line()+
+  
+  scale_color_viridis_d()+
+  
+  ggtitle(label = "Gráfico 3: ARMSE",
+          subtitle = "Dezembro de 2017 a Junho de 2020")+
+  labs(x = "Ano e mês da cisão",
+       y = "ARMSE",
+       color = "Modelo")+
+  theme(axis.text.x = element_text(angle = 90, size = 7, vjust = 0.3))
+
+# ggsave(filename = "3.output/2.figures/G3.png")
+```
+
+```{r}
+modelos %>% 
+  group_by(anomes) %>% 
+  mutate(min = armse == min(armse)) %>%
+  filter(min == TRUE)
+```
+
+```{r, eval=FALSE}
+# PROBLEMA: int não tem nove elementos
+x<- int[[9]][[31]]
+x<- x[c(3,5)]
+names(x)<- c("Período", "Previsto")
+
+stargazer::stargazer(x,
+          # type = "text",
+          title = "Atos de concentração previstos para o modelo M09 - base de treino até junho de 2020",
+          summary = F, digits = 1,
+          rownames = FALSE)
+```
+
+```{r}
+ggplot(data = modelos %>% filter(modelo %in% c("M01", "M09")),
+       mapping = aes(x = anomes, y = armse, group = modelo, color = modelo))+
+  geom_point()+
+  geom_line()+
+  
+  scale_color_viridis_d()+
+  
+  ggtitle(label = "Gráfico 4: ARMSE - M01 vs. M09",
+          subtitle = "Dezembro de 2017 a Junho de 2020")+
+  labs(x = "Ano e mês da cisão",
+       y = "ARMSE",
+       color = "Modelo")+
+  theme(axis.text.x = element_text(angle = 90, size = 7, vjust = 0.3))
+
+# ggsave(filename = "3.output/2.figures/G4.png")
+```
+
+```{r,eval=FALSE}
+# PROBLEMA: Dá erro
+x<- do.call(what = rbind.data.frame, args = int[[9]])
+x<- x[-1:-2]
+
+ggplot(data = x, mapping = aes(x = anomes))+
+  geom_boxplot(mapping = aes(y = prev))+
+  geom_point(mapping = aes(y = ac), color = "red")+
+  geom_line(mapping = aes(y = ac, group = 1), color = "red")+
+  coord_cartesian(ylim = c(0,60))+
+  labs(title = "Gráfico 04: Estimativas mensais Vs. Valores observados",
+       x = "Ano e mês de entrada do processo no Cade\nFonte: Cade em Números",
+       y = "Número de atos de concentração")+
+  theme(plot.title = element_text(hjust = 0.5),
+        #axis.ticks.x = element_blank(),
+        axis.text.x = element_text(angle = 90, size = 8, vjust = 0.5),
+        axis.text.y = element_text(size = 5))
+```
+
+
+```{r, eval=FALSE}
+# PROBLEMA: resumo não existe
+resumo_graf<- 
+  tidyr::gather(data = resumo, key = "Modelo", value = "Estimado", -"Realizado", -"ano_mes", -"ano")
+
+
+  
+# ggsave(filename = "3. output/2. figures/imagem_04.png", width = 10, height = 12, dpi = 600)
+```
+
+## rascunho
+
+```{r}
+int<- base[,c("ac","ipca")]
+int$lipca<- log(int$ipca)
+
+ggplot(data = int, mapping = aes(x = ac))+
+  geom_smooth(mapping = aes(y = ipca), color = "blue")+
+  geom_smooth(mapping = aes(y = lipca), color = "red")
+```
+
+```{r, eval=FALSE}
+# Out of limits
+int[[9]][[31]]
+```
+
+```{r}
+# mod
+```
+
+```{r}
+# lapply(X = base, FUN = function(x) which(is.na(x)))
+```
+
+```{r, eval=FALSE}
+# Tá dando erro: 
+# estimativas<- int[[1]][[1]]
+# saveRDS(object = estimativas, file = "3.output/1.data/M01.rds")
+```

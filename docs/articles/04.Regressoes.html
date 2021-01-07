@@ -68,6 +68,9 @@
     <li>
       <a href="../articles/04.Regressoes.html">Previsão ACs - Regressões</a>
     </li>
+    <li>
+      <a href="../articles/05.Resultados.html">Previsão ACs - Resultados</a>
+    </li>
   </ul>
 </li>
       </ul>
@@ -81,7 +84,7 @@
 
       
 
-      </header><div class="row">
+      </header><script src="04.Regressoes_files/accessible-code-block-0.0.1/empty-anchor.js"></script><div class="row">
   <div class="col-md-9 contents">
     <div class="page-header toc-ignore">
       <h1 data-toc-skip>Previsão ACs - Regressões</h1>
@@ -101,9 +104,9 @@
 <a href="#escopo" class="anchor"></a>Escopo</h2>
 <p>O trabalho consiste em estabelecer um método para a definição de modelos mais adequados para a previsão do número de atos de concentração dentro do CADE.</p>
 </div>
-<div id="regressoes" class="section level2">
+<div id="regressões" class="section level2">
 <h2 class="hasAnchor">
-<a href="#regressoes" class="anchor"></a>Regressões</h2>
+<a href="#regress%C3%B5es" class="anchor"></a>Regressões</h2>
 <p>Afim de buscar um modelo que melhor explique como flutuações em variáveis macroeconômicas são capazes de influenciar a decisão de investimento na forma de atos de concentração, realizar-se-á um conjunto de regressões que tem como variáveis independentes as variáveis estacionárias selecionadas anteriormente, e como variável depedente o número de atos de concentração que entram mensalmente no CADE.</p>
 <p>O objetivo aqui é o de testar o máximo de combinações possíveis para determinar qual o modelo que ao longo do tempo teria sido mais bem sucedido, ná média, na terefa de prever o número de ACs na autarquia.</p>
 <div id="carga-e-tratamento-da-base" class="section level3">
@@ -113,9 +116,9 @@
 <div class="sourceCode" id="cb1"><pre class="downlit">
 <span class="va">base</span><span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/readRDS.html">readRDS</a></span><span class="op">(</span>file <span class="op">=</span> <span class="st">"inst/3.output/1.data/base.rds"</span><span class="op">)</span></pre></div>
 </div>
-<div id="escrevendo-equacoes" class="section level3">
+<div id="escrevendo-equações" class="section level3">
 <h3 class="hasAnchor">
-<a href="#escrevendo-equacoes" class="anchor"></a>Escrevendo equações</h3>
+<a href="#escrevendo-equa%C3%A7%C3%B5es" class="anchor"></a>Escrevendo equações</h3>
 <p>Subindo os códigos das variáveis estacionárias</p>
 <div class="sourceCode" id="cb2"><pre class="downlit">
 <span class="va">estac</span><span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/readRDS.html">readRDS</a></span><span class="op">(</span>file <span class="op">=</span> <span class="st">"inst/3.output/1.data/estacionariedade.rds"</span><span class="op">)</span>
@@ -154,9 +157,9 @@
 
 <span class="fu"><a href="https://rdrr.io/r/base/rm.html">rm</a></span><span class="op">(</span><span class="va">int</span>, <span class="va">fun1</span>, <span class="va">fun2</span>, <span class="va">var</span><span class="op">)</span></pre></div>
 </div>
-<div id="execucao-das-regressoes" class="section level3">
+<div id="execução-das-regressões" class="section level3">
 <h3 class="hasAnchor">
-<a href="#execucao-das-regressoes" class="anchor"></a>Execução das regressões</h3>
+<a href="#execu%C3%A7%C3%A3o-das-regress%C3%B5es" class="anchor"></a>Execução das regressões</h3>
 <p>Afim de projetar o número de atos de concentração nos próximos 12 meses, faz-se necessário que essa variável explicada seja uma função de variáveis defasadas em 12 meses. Assim, com os dados de hoje, será possivel estimar os dados de daqui 12 meses.</p>
 <p>Existem várias formas de lidar com variáveis defasadas em regressões no R. Mas para evitar dificuldades com o uso da função <code>predict</code> buscar-se-á defasar cada vetor de variável explicativa dentro da própria base.</p>
 <p>Nota-se que as regressões serão equivalentes a regressões com variáveis conteporâneas, mas com interpretações equivalentes a de variáveis defasadas.</p>
@@ -232,10 +235,13 @@ ARMSE^{j} = \sum_{\overline{t}=\overline{t}_0}^{\overline{t}_n} RMSE^{j,\overlin
 
 <span class="va">fun7</span><span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">x</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html">sapply</a></span><span class="op">(</span>X <span class="op">=</span> <span class="va">x</span>, FUN <span class="op">=</span> <span class="va">fun6</span><span class="op">)</span>
 
-<span class="va">mod</span><span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html">lapply</a></span><span class="op">(</span>X <span class="op">=</span> <span class="va">int</span>, FUN <span class="op">=</span> <span class="va">fun7</span><span class="op">)</span>; <span class="va">models</span><span class="op">&lt;-</span> <span class="va">mod</span> <span class="co"># salvando cópia</span>
+<span class="va">mod</span><span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html">lapply</a></span><span class="op">(</span>X <span class="op">=</span> <span class="va">int</span>, FUN <span class="op">=</span> <span class="va">fun7</span><span class="op">)</span>
+<span class="va">models</span><span class="op">&lt;-</span> <span class="va">mod</span> <span class="co"># salvando cópia</span>
 <span class="va">mod</span><span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html">sapply</a></span><span class="op">(</span>X <span class="op">=</span> <span class="va">mod</span>, FUN <span class="op">=</span> <span class="va">sum</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>
+<span class="va">rank</span><span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html">data.frame</a></span><span class="op">(</span>modelo <span class="op">=</span> <span class="va">func</span>, armse <span class="op">=</span> <span class="va">mod</span><span class="op">)</span>
+<span class="va">mod_lrun</span><span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/which.min.html">which.min</a></span><span class="op">(</span><span class="va">mod</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">2</span><span class="op">]</span><span class="op">)</span> <span class="co"># modelo de longo prazo escolhido</span>
+<span class="va">mod</span><span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/which.min.html">which.min</a></span><span class="op">(</span><span class="va">mod</span><span class="op">)</span> <span class="co"># modelo de curto prazo escolhido</span>
 
-<span class="va">mod</span><span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/which.min.html">which.min</a></span><span class="op">(</span><span class="va">mod</span><span class="op">)</span>
 <span class="fu"><a href="https://rdrr.io/r/base/rm.html">rm</a></span><span class="op">(</span><span class="va">fun6</span>, <span class="va">fun7</span><span class="op">)</span></pre></div>
 </div>
 </div>
@@ -244,6 +250,9 @@ ARMSE^{j} = \sum_{\overline{t}=\overline{t}_0}^{\overline{t}_n} RMSE^{j,\overlin
 <a href="#output" class="anchor"></a>Output</h2>
 <p>Vários dos objetos produzidos aqui são insumos para a produção do relatório final. Deve-se selecionar estes elementos para que sejam carregados ao início do relatório.</p>
 <p>Eis uma lista destes resultados:</p>
+<div id="modelo-de-curto-prazo" class="section level3">
+<h3 class="hasAnchor">
+<a href="#modelo-de-curto-prazo" class="anchor"></a>Modelo de curto prazo</h3>
 <div class="sourceCode" id="cb16"><pre class="downlit">
 <span class="va">output</span><span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span><span class="op">)</span>
 
@@ -258,15 +267,36 @@ ARMSE^{j} = \sum_{\overline{t}=\overline{t}_0}^{\overline{t}_n} RMSE^{j,\overlin
 <span class="va">output</span><span class="op">$</span><span class="va">previsao</span><span class="op">&lt;-</span> <span class="va">int</span><span class="op">[[</span><span class="va">mod</span><span class="op">]</span><span class="op">]</span><span class="op">[[</span><span class="va">last</span><span class="op">]</span><span class="op">]</span>
 
 <span class="fu"><a href="https://rdrr.io/r/base/rm.html">rm</a></span><span class="op">(</span><span class="va">last</span><span class="op">)</span></pre></div>
-<p>Salvando o RDS</p>
+</div>
+<div id="modelo-de-longo-prazo" class="section level3">
+<h3 class="hasAnchor">
+<a href="#modelo-de-longo-prazo" class="anchor"></a>Modelo de longo prazo</h3>
 <div class="sourceCode" id="cb17"><pre class="downlit">
+<span class="va">output_lrun</span><span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span><span class="op">)</span>
+<span class="co"># O modelo selecionado</span>
+<span class="va">output_lrun</span><span class="op">$</span><span class="va">modelo</span><span class="op">&lt;-</span> <span class="va">func</span><span class="op">[</span><span class="va">mod_lrun</span><span class="op">]</span>
+<span class="co"># A regressão</span>
+<span class="va">output_lrun</span><span class="op">$</span><span class="va">regressao</span><span class="op">&lt;-</span> <span class="va">reg</span><span class="op">[[</span><span class="va">mod_lrun</span><span class="op">]</span><span class="op">]</span>
+<span class="co"># As previsões</span>
+<span class="va">last</span><span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html">length</a></span><span class="op">(</span><span class="va">int</span><span class="op">[[</span><span class="va">mod_lrun</span><span class="op">]</span><span class="op">]</span><span class="op">)</span>
+<span class="va">output_lrun</span><span class="op">$</span><span class="va">previsao</span><span class="op">&lt;-</span> <span class="va">int</span><span class="op">[[</span><span class="va">mod_lrun</span><span class="op">]</span><span class="op">]</span><span class="op">[[</span><span class="va">last</span><span class="op">]</span><span class="op">]</span>
+<span class="fu"><a href="https://rdrr.io/r/base/rm.html">rm</a></span><span class="op">(</span><span class="va">last</span><span class="op">)</span></pre></div>
+</div>
+<div id="salvando-o-rds" class="section level3">
+<h3 class="hasAnchor">
+<a href="#salvando-o-rds" class="anchor"></a>Salvando o RDS</h3>
+<div class="sourceCode" id="cb18"><pre class="downlit">
 <span class="fu"><a href="https://rdrr.io/r/base/readRDS.html">saveRDS</a></span><span class="op">(</span>object <span class="op">=</span> <span class="va">output</span>, file <span class="op">=</span> <span class="st">"inst/3.output/1.data/output_resultado.rds"</span><span class="op">)</span>
 <span class="fu"><a href="https://rdrr.io/r/base/readRDS.html">saveRDS</a></span><span class="op">(</span>object <span class="op">=</span> <span class="va">int</span>, file <span class="op">=</span> <span class="st">"inst/3.output/1.data/int.rds"</span><span class="op">)</span>
-<span class="fu"><a href="https://rdrr.io/r/base/readRDS.html">saveRDS</a></span><span class="op">(</span>object <span class="op">=</span> <span class="va">models</span>, file <span class="op">=</span> <span class="st">"inst/3.output/1.data/models.rds"</span><span class="op">)</span></pre></div>
+<span class="fu"><a href="https://rdrr.io/r/base/readRDS.html">saveRDS</a></span><span class="op">(</span>object <span class="op">=</span> <span class="va">models</span>, file <span class="op">=</span> <span class="st">"inst/3.output/1.data/models.rds"</span><span class="op">)</span>
+
+<span class="fu"><a href="https://rdrr.io/r/base/readRDS.html">saveRDS</a></span><span class="op">(</span>object <span class="op">=</span> <span class="va">output_lrun</span>, file <span class="op">=</span> <span class="st">"inst/3.output/1.data/output_resultado.rds_lrun"</span><span class="op">)</span>
+<span class="fu"><a href="https://rdrr.io/r/base/readRDS.html">saveRDS</a></span><span class="op">(</span>object <span class="op">=</span> <span class="va">rank</span>, file <span class="op">=</span> <span class="st">"inst/3.output/1.data/rank.rds"</span><span class="op">)</span></pre></div>
 <p>Removendo lixo:</p>
-<div class="sourceCode" id="cb18"><pre class="downlit">
+<div class="sourceCode" id="cb19"><pre class="downlit">
 <span class="fu"><a href="https://rdrr.io/r/base/rm.html">rm</a></span><span class="op">(</span>list <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/ls.html">ls</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></pre></div>
 <p>FIM</p>
+</div>
 </div>
   </div>
 
