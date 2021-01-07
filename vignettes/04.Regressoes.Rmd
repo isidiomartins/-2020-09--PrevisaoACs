@@ -188,10 +188,13 @@ fun6<- function(x){
 
 fun7<- function(x) sapply(X = x, FUN = fun6)
 
-mod<- lapply(X = int, FUN = fun7); models<- mod # salvando cópia
+mod<- lapply(X = int, FUN = fun7)
+models<- mod # salvando cópia
 mod<- sapply(X = mod, FUN = sum, na.rm = TRUE)
+rank<- data.frame(modelo = func, armse = mod)
+mod_lrun<- which.min(mod[1:2]) # modelo de longo prazo escolhido
+mod<- which.min(mod) # modelo de curto prazo escolhido
 
-mod<- which.min(mod)
 rm(fun6, fun7)
 ```
 
@@ -200,6 +203,9 @@ rm(fun6, fun7)
 Vários dos objetos produzidos aqui são insumos para a produção do relatório final. Deve-se selecionar estes elementos para que sejam carregados ao início do relatório.
 
 Eis uma lista destes resultados:
+
+### Modelo de curto prazo
+
 ```{r}
 output<- list()
 
@@ -216,11 +222,29 @@ output$previsao<- int[[mod]][[last]]
 rm(last)
 ```
 
-Salvando o RDS
+### Modelo de longo prazo
+
+```{r}
+output_lrun<- list()
+# O modelo selecionado
+output_lrun$modelo<- func[mod_lrun]
+# A regressão
+output_lrun$regressao<- reg[[mod_lrun]]
+# As previsões
+last<- length(int[[mod_lrun]])
+output_lrun$previsao<- int[[mod_lrun]][[last]]
+rm(last)
+```
+
+### Salvando o RDS
+
 ```{r eval = FALSE}
 saveRDS(object = output, file = "inst/3.output/1.data/output_resultado.rds")
 saveRDS(object = int, file = "inst/3.output/1.data/int.rds")
 saveRDS(object = models, file = "inst/3.output/1.data/models.rds")
+
+saveRDS(object = output_lrun, file = "inst/3.output/1.data/output_resultado.rds_lrun")
+saveRDS(object = rank, file = "inst/3.output/1.data/rank.rds")
 ```
 
 Removendo lixo:
