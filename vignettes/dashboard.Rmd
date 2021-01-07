@@ -1,0 +1,182 @@
+---
+title: "Dashboard"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(tidyverse)
+knitr::opts_chunk$set(echo = FALSE,
+                      warning = FALSE, message = FALSE)
+# base
+base <- readRDS(file = system.file("3.output", "1.data", "base.rds", 
+                                 package = "previsaoAC"))
+
+# modelos
+modelos <- readRDS(file = system.file("3.output", "1.data", "models.rds", 
+                                 package = "previsaoAC"))
+
+# dados anuais
+p1 <- base %>% 
+  filter(!is.na(ac)) %>% 
+  select(anomes, ano, mes, ac) %>% 
+  mutate(status = "realização")
+
+# Previsões CP
+output<- readRDS(file = system.file("3.output", "1.data", "output_resultado.rds", 
+                                 package = "previsaoAC"))
+
+p2 <- output$previsao %>% 
+  select(anomes, ano, mes, ac = prev) %>%
+  mutate(status = "previsão")
+
+# Previsões LP
+output_lrun<- readRDS(file = system.file("3.output", "1.data", 
+                                         "output_resultado.rds_lrun", 
+                                         package = "previsaoAC"))
+p3 <- output_lrun$previsao %>% 
+  select(anomes, ano, mes, ac = prev) %>%
+  mutate(status = "previsão")
+
+p3 <- rbind.data.frame(p3 %>% mutate(ano = ano+1),
+                      p3 %>% mutate(ano = ano+2),
+                      p3 %>% mutate(ano = ano+3),
+                      p3 %>% mutate(ano = ano+4))
+p3 <- p3 %>% 
+  filter(ano != 2025) %>%
+  mutate(anomes = paste0(ano, "-", formatC(x = mes, width = 2, flag = "0")))
+
+dados.mensais<- rbind.data.frame(p1, p2, p3)
+
+dados.anuais <- dados.mensais %>% 
+  mutate(ano = factor(ano)) %>% 
+  group_by(ano, status) %>% 
+  summarise(ac = sum(ac, na.rm = TRUE))
+```
+
+
+Resultados
+=======================================================================
+
+Column {data-width=650}
+-----------------------------------------------------------------------
+
+### Chart A
+
+```{r}
+ggplot()+
+  geom_bar(data = dados.anuais,
+           mapping = aes(x = ano, y = ac, fill = status),
+           stat = "identity")+
+  
+  # scale_fill_viridis_d(begin = 0.3, end = 0.7)+
+  geom_text(data = dados.anuais %>%
+              # filter(ano != ano_atual+1) %>%
+              group_by(ano) %>%
+              summarise(ac = sum(ac)),
+           mapping = aes(x = ano, y = ac, label = round(ac)),
+           position = "stack", vjust = -0.5, size = 3)+
+  
+  geom_text(data = dados.anuais,# %>% filter(ano == ano_atual),
+            mapping = aes(x = ano, y = ac, fill = status, label = round(ac)),
+            position = position_stack(vjust = 0.5), size = 3.5) +
+  ggtitle(label = "Gráfico 6: Número de notificações de ACs no Cade", 
+          subtitle = "Realizações e Previsões")+
+  labs(fill = element_blank())+
+  theme_minimal() +
+  theme(axis.title = element_blank(), panel.grid.major.x = element_blank(),
+        legend.position = "top")
+```
+
+Column {data-width=350}
+-----------------------------------------------------------------------
+
+### Chart B
+
+```{r}
+ggplot(data = base %>% filter(!is.na(ac)),
+       # mapping = aes(x = data, fill = factor(ano)))+
+       mapping = aes(x = data))+
+  geom_bar(aes(y = ac), stat = "identity", width = 20)+
+  geom_line(aes(y = ac12c/12, group = 1), size = 1.5, color = "red")+
+  # scale_fill_viridis_d(
+  #   guide = guide_legend(direction = "horizontal")
+  # )+
+  scale_x_date(breaks = "1 year") +
+  ggtitle(label = "Gráfico 1: Notificações mensais de atos de concentração no Cade",
+          subtitle = "Janeiro de 2015 a Junho de 2020")+
+  labs(x = "Ano e mês de notificação no Cade",
+       y = "Número de notificações",
+       fill = "Ano", 
+       caption = "Obs: A linha em vermelho representa a média móvel de 12 meses.\nFonte: Cade em Números.") +
+  theme_minimal() + 
+  theme(legend.position = c(0.2, 0.9))
+```
+
+Análise dos modelos
+=======================================================================
+
+### Chart C
+
+```{r, include=FALSE}
+modelos<- do.call(what = cbind, args = modelos)
+dim<- ncol(modelos)
+colnames(modelos)<- paste0("M", formatC(x = 1:dim, width = 2, flag = "0"))
+
+modelos<- as.data.frame(modelos, stringsAsFactors = FALSE)
+
+mes<- formatC(x = 1:12, width = 2, flag = "0")
+ano<- 2017:2020
+anomes<- paste0(sort(rep(ano, times = 12)),"-",mes)
+modelos$anomes<- anomes[12:42]
+
+rm(ano, mes, anomes)
+
+modelos<- tidyr::pivot_longer(data = modelos,
+                              names_to = "modelo",
+                              values_to = "rmse",
+                              -anomes)
+modelos<- modelos %>% 
+  group_by(modelo) %>% 
+  mutate(armse = cumsum(rmse))
+```
+
+```{r}
+ggplot(data = modelos,
+       mapping = aes(x = lubridate::as_date(paste0(anomes, "-01")), 
+                     # y = rmse, group = modelo, color = modelo))+
+                     y = rmse, group = modelo))+
+  geom_point(alpha = 0.5)+
+  geom_line(alpha = 0.5)+
+  # scale_color_viridis_d()+
+  scale_x_date(breaks = "4 months", date_labels = "%m/%Y") +
+  ggtitle(label = "Gráfico 2: RMSE",
+          subtitle = "Dezembro de 2017 a Junho de 2020")+
+  labs(x = "Ano e mês da cisão",
+       y = "RMSE",
+       color = "Modelo")+
+  theme_minimal() + 
+  theme(legend.position = "none")
+```
+
+### Chart D
+
+```{r}
+ggplot(data = modelos,
+       mapping = aes(x = lubridate::as_date(paste0(anomes, "-01")), 
+                     # y = armse, group = modelo, color = modelo))+
+                     y = armse, group = modelo))+
+  geom_point(alpha = 0.5)+
+  geom_line(alpha = 0.5)+
+  # scale_color_viridis_d()+
+  scale_x_date(breaks = "4 months", date_labels = "%m/%Y") +
+  ggtitle(label = "Gráfico 3: ARMSE",
+          subtitle = "Dezembro de 2017 a Junho de 2020")+
+  labs(x = "Ano e mês da cisão",
+       y = "ARMSE")+
+  theme_minimal() +
+  theme(legend.position = "none")
+```
