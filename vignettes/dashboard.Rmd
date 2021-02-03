@@ -9,6 +9,11 @@ output:
 ```{r setup, include=FALSE}
 library(flexdashboard)
 library(tidyverse)
+# Esse painel usa quadro tabelas/resultados como input:
+# base.rds
+# models.rds
+# output.rds
+# output.rds_lrun
 knitr::opts_chunk$set(echo = FALSE,
                       warning = FALSE, message = FALSE)
 # base
@@ -26,85 +31,89 @@ p1 <- base %>%
   mutate(status = "realização")
 
 # Previsões CP
-output<- readRDS(file = system.file("3.output", "1.data", "output_resultado.rds", 
-                                 package = "previsaoAC"))
+path_output <- system.file("3.output", "1.data", 
+                           "output_resultado.rds", 
+                           package = "previsaoAC")
+output <- readRDS(file = path_output)
 
 p2 <- output$previsao %>% 
   select(anomes, ano, mes, ac = prev) %>%
   mutate(status = "previsão")
 
 # Previsões LP
-output_lrun<- readRDS(file = system.file("3.output", "1.data", 
-                                         "output_resultado.rds_lrun", 
-                                         package = "previsaoAC"))
+path_output_lrun <- system.file("3.output", "1.data", 
+                                "output_resultado.rds_lrun", 
+                                package = "previsaoAC")
+output_lrun <- readRDS(file = path_output_lrun)
+
 p3 <- output_lrun$previsao %>% 
   select(anomes, ano, mes, ac = prev) %>%
   mutate(status = "previsão")
 
-p3 <- rbind.data.frame(p3 %>% mutate(ano = ano+1),
-                      p3 %>% mutate(ano = ano+2),
-                      p3 %>% mutate(ano = ano+3),
-                      p3 %>% mutate(ano = ano+4))
+p3 <- bind_rows(p3 %>% mutate(ano = ano + 1),
+                p3 %>% mutate(ano = ano + 2),
+                p3 %>% mutate(ano = ano + 3),
+                p3 %>% mutate(ano = ano + 4))
+
 p3 <- p3 %>% 
-  filter(ano != 2025) %>%
+  # Ver se a regra é essa mesma
+  filter(ano < max(base$ano) + 4) %>%
   mutate(anomes = paste0(ano, "-", formatC(x = mes, width = 2, flag = "0")))
 
-dados.mensais<- rbind.data.frame(p1, p2, p3)
+dados.mensais <- bind_rows(p1, p2, p3)
+
+theme_set(
+  theme_minimal() +
+  theme(axis.title = element_blank(), 
+        panel.grid.major.x = element_blank(),
+        legend.position = "top")
+)
 
 dados.anuais <- dados.mensais %>% 
-  mutate(ano = factor(ano)) %>% 
+  mutate(ano = ano) %>% 
   group_by(ano, status) %>% 
   summarise(ac = sum(ac, na.rm = TRUE))
 ```
 
 
-Resultados
+Apesentação
 =======================================================================
 
-Column {data-width=650}
+Column {data-width=500}
 -----------------------------------------------------------------------
 
-### Chart A
+### Modelos escolhidos
 
-```{r}
-ggplot()+
-  geom_bar(data = dados.anuais,
-           mapping = aes(x = ano, y = ac, fill = status),
-           stat = "identity")+
-  
-  # scale_fill_viridis_d(begin = 0.3, end = 0.7)+
-  geom_text(data = dados.anuais %>%
-              # filter(ano != ano_atual+1) %>%
-              group_by(ano) %>%
-              summarise(ac = sum(ac)),
-           mapping = aes(x = ano, y = ac, label = round(ac)),
-           position = "stack", vjust = -0.5, size = 3)+
-  
-  geom_text(data = dados.anuais,# %>% filter(ano == ano_atual),
-            mapping = aes(x = ano, y = ac, fill = status, label = round(ac)),
-            position = position_stack(vjust = 0.5), size = 3.5) +
-  ggtitle(label = "Gráfico 6: Número de notificações de ACs no Cade", 
-          subtitle = "Realizações e Previsões")+
-  labs(fill = element_blank())+
-  theme_minimal() +
-  theme(axis.title = element_blank(), panel.grid.major.x = element_blank(),
-        legend.position = "top")
-```
+Este é um trabalho realizado pela equipe do DEE para a predição 
+da quantidade de ACs notificados ao Cade com base em variáveis 
+macroeconômicas. 
 
-Column {data-width=350}
+Mais informações metodológicas sobre este trabalho podem ser encontradas 
+no [artigo que a descreve](https://gov.br/cade), 
+nas notas técnicas [X e Y](https://gov.br/cade) ou 
+no [código desta aplicação](https://gitlab.cade.gov.br/DEE/previsaoACs).
+
+O modelo escolhido este mês foi:
+
+<p style = "text-align: center">
+`r format(formula(output$regressao))`
+</p>
+
+O modelo escolhido para as previsões de longo prazo foi:
+
+<p style = "text-align: center">
+`r format(formula(output_lrun$regressao))`
+</p>
+
+Column {data-width=500}
 -----------------------------------------------------------------------
 
-### Chart B
+### Notificações mensais
 
 ```{r}
-ggplot(data = base %>% filter(!is.na(ac)),
-       # mapping = aes(x = data, fill = factor(ano)))+
-       mapping = aes(x = data))+
-  geom_bar(aes(y = ac), stat = "identity", width = 20)+
+ggplot(base %>% filter(!is.na(ac)), aes(x = data))+
+  geom_col(aes(y = ac), width = 20)+
   geom_line(aes(y = ac12c/12, group = 1), size = 1.5, color = "red")+
-  # scale_fill_viridis_d(
-  #   guide = guide_legend(direction = "horizontal")
-  # )+
   scale_x_date(breaks = "1 year") +
   ggtitle(label = "Gráfico 1: Notificações mensais de atos de concentração no Cade",
           subtitle = "Janeiro de 2015 a Junho de 2020")+
@@ -112,14 +121,76 @@ ggplot(data = base %>% filter(!is.na(ac)),
        y = "Número de notificações",
        fill = "Ano", 
        caption = "Obs: A linha em vermelho representa a média móvel de 12 meses.\nFonte: Cade em Números.") +
-  theme_minimal() + 
   theme(legend.position = c(0.2, 0.9))
+```
+
+Resultados
+=======================================================================
+
+Column {data-width=500}
+-----------------------------------------------------------------------
+
+### Previsões melhor modelo
+
+```{r, fig.align='center', echo=FALSE}
+ano_atual<- lubridate::year(lubridate::today())
+
+dados.anuais %>% 
+  filter(ano <= max(base$ano + 1)) %>% 
+  ggplot() +
+  geom_col(aes(x = ano, y = ac, fill = status)) +
+  scale_fill_viridis_d(begin = 0.3, end = 0.7) +
+  geom_text(aes(x = ano, y = ac, label = round(ac)),
+            data = dados.anuais %>% 
+              filter(ano <= max(base$ano)) %>% 
+              group_by(ano) %>%
+              summarise(ac = sum(ac)),
+            position = "stack", vjust = -0.5, size = 3
+  ) +
+  geom_text(aes(x = ano, y = ac, fill = status, label = round(ac)),
+            position = position_stack(vjust = 0.5), size = 3.5) +
+  coord_cartesian(ylim = c(0, 450)) +
+  ggtitle(label = "Número de notificações de ACs no Cade",
+          # "Gráfico 6: Número de notificações de ACs no Cade", 
+          subtitle = "Realizações e Previsões")+
+  labs(fill = element_blank())
+  
+
+# ggsave(filename = "3.output/2.figures/G8.png")
+```
+
+Column {data-width=500}
+-----------------------------------------------------------------------
+
+### Previsões de longo prazo
+
+```{r}
+ggplot(dados.anuais)+
+  geom_bar(aes(x = factor(ano), y = ac, fill = status),
+           stat = "identity")+
+  geom_text(aes(x = factor(ano), y = ac, label = round(ac)),
+            data = dados.anuais %>%
+              group_by(ano) %>%
+              summarise(ac = sum(ac)),
+            position = "stack", vjust = -0.5, size = 3)+
+  
+  geom_text(aes(x = factor(ano), y = ac, fill = status, label = round(ac)),
+            position = position_stack(vjust = 0.5), size = 3.5) +
+  
+  scale_fill_viridis_d(begin = 0.3, end = 0.7)+
+  ggtitle(label = "Gráfico 6: Número de notificações de ACs no Cade", 
+          subtitle = "Realizações e Previsões")+
+  labs(fill = element_blank())+
+  theme(legend.position = "top")
 ```
 
 Análise dos modelos
 =======================================================================
 
-### Chart C
+Column {data-width=500}
+-----------------------------------------------------------------------
+
+### RMSE dos modelos
 
 ```{r, include=FALSE}
 modelos<- do.call(what = cbind, args = modelos)
@@ -138,45 +209,65 @@ rm(ano, mes, anomes)
 modelos<- tidyr::pivot_longer(data = modelos,
                               names_to = "modelo",
                               values_to = "rmse",
-                              -anomes)
-modelos<- modelos %>% 
+                              -anomes) %>% 
   group_by(modelo) %>% 
   mutate(armse = cumsum(rmse))
 ```
 
 ```{r}
+melhor_modelo <- modelos %>%
+  group_by(modelo) %>% 
+  filter(armse == max(armse, na.rm = TRUE)) %>% 
+  ungroup() %>% 
+  filter(armse == min(armse, na.rm = TRUE)) %>% 
+  pull(modelo)
+
 ggplot(data = modelos,
        mapping = aes(x = lubridate::as_date(paste0(anomes, "-01")), 
                      # y = rmse, group = modelo, color = modelo))+
                      y = rmse, group = modelo))+
-  geom_point(alpha = 0.5)+
-  geom_line(alpha = 0.5)+
+  geom_point(alpha = 0.3) +
+  geom_line(alpha = 0.3) +
+  geom_point(data = filter(modelos, modelo == melhor_modelo), 
+             col = "steelblue", size = 3) +
+  geom_line(data = filter(modelos, modelo == melhor_modelo), 
+            col = "steelblue", size = 1) +
+  annotate("text", label = output$modelo, 
+           x = lubridate::as_date("2019-06-01"), 
+           y = 5, col = "steelblue", size = 5) +
   # scale_color_viridis_d()+
   scale_x_date(breaks = "4 months", date_labels = "%m/%Y") +
   ggtitle(label = "Gráfico 2: RMSE",
           subtitle = "Dezembro de 2017 a Junho de 2020")+
   labs(x = "Ano e mês da cisão",
        y = "RMSE",
-       color = "Modelo")+
-  theme_minimal() + 
+       color = "Modelo") + 
   theme(legend.position = "none")
 ```
 
-### Chart D
+Column {data-width=500}
+-----------------------------------------------------------------------
+
+### ARMSE dos modelos
 
 ```{r}
 ggplot(data = modelos,
-       mapping = aes(x = lubridate::as_date(paste0(anomes, "-01")), 
-                     # y = armse, group = modelo, color = modelo))+
+       mapping = aes(x = lubridate::as_date(paste0(anomes, "-01")),
                      y = armse, group = modelo))+
-  geom_point(alpha = 0.5)+
-  geom_line(alpha = 0.5)+
+  geom_point(alpha = 0.3) +
+  geom_line(alpha = 0.3) +
+  geom_point(data = filter(modelos, modelo == melhor_modelo), 
+             col = "steelblue", size = 3) +
+  geom_line(data = filter(modelos, modelo == melhor_modelo), 
+            col = "steelblue", size = 1) +
+  annotate("text", label = output$modelo, 
+           x = lubridate::as_date("2019-10-01"), 
+           y = 50, col = "steelblue", size = 5) +
   # scale_color_viridis_d()+
   scale_x_date(breaks = "4 months", date_labels = "%m/%Y") +
   ggtitle(label = "Gráfico 3: ARMSE",
           subtitle = "Dezembro de 2017 a Junho de 2020")+
   labs(x = "Ano e mês da cisão",
-       y = "ARMSE")+
-  theme_minimal() +
+       y = "ARMSE") + 
   theme(legend.position = "none")
 ```
