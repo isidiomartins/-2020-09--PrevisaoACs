@@ -21,5 +21,6 @@ Imports:
     dplyr,
     readxl,
     stargazer,
-    lmtest
-RoxygenNote: 7.1.0
+    lmtest,
+    devtools
+RoxygenNote: 7.1.1
