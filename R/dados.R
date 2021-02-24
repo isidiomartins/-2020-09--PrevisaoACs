@@ -62,8 +62,10 @@ ler_apis <- function() {
 #'
 #' @return Uma tabela com CN compilado
 #' @export
-ler_cn <- function() {
-  dir <- system.file("ext", package = "previsaoAC")
+ler_cn <- function(dir = NULL) {
+  if (is.null(dir)) {
+    dir <- system.file("ext", package = "previsaoAC")
+  }
   arq <- list.files(path = dir, full.names = TRUE)
   lista <- lapply(arq, readxl::read_excel)
 
