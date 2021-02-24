@@ -74,8 +74,9 @@ ler_cn <- function(dir = NULL) {
 
   purrr::map2_df(lista, nomes, ~dplyr::mutate(.x, ano = .y)) %>%
     setNames(c("mes", "acs", "ano")) %>%
-    dplyr::mutate(int = paste0(ano, "-", mes,"-01"),
-           date = as.Date(int, format = "%Y-%b-%d")) %>%
+    dplyr::mutate(int = paste0(ano,"-", formatC(1:12, width = 2, flag = "0"),
+                               "-01"),
+                  date = as.Date(int, format = "%Y-%m-%d")) %>%
     dplyr::select(date, acs) %>%
     # Remover último registro que contém informação parcial do mês atual
     dplyr::filter(date != max(date))
